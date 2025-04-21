@@ -45,23 +45,23 @@ And change the license models of your Databases and others to BYOL.
 
 2. Create Tag Namespaces in Root compartment
 
-    - Namespace Definition Name: Control
+    - Namespace Definition Name: `Control`
 
 3. Create Tag Key Definitions
 
-    |Tag Key     |Description                             | Tag Value Type|Value                                     |
-    |------------|----------------------------------------|---------------|------------------------------------------|
-    |Nightly-Stop|If FALSE, does not stop at 12 midnight  | List          |TRUE, FALSE                               |
-    |BYOL        |If FALSE, does not change license model | List          |TRUE, FALSE                               |
-    |Timezone    |Compartment level tag                   | List          |UTC+07:00, UTC+08:00, UTC+09:00, UTC+09:30|
+    |Tag Key       |Description                             | Tag Value Type|Value                                                      |
+    |--------------|----------------------------------------|---------------|-----------------------------------------------------------|
+    |`Nightly-Stop`|If FALSE, does not stop at 24:00        | List          |`TRUE`<br> `FALSE`                                         |
+    |`BYOL`        |If FALSE, does not change license model | List          |`TRUE`<br> `FALSE`                                         |
+    |`Timezone`    |Compartment level tag                   | List          |`UTC+07:00`<br> `UTC+08:00`<br> `UTC+09:00`<br> `UTC+09:30`|
 
-    - If you need, add more value in Timezone.
+    - If you need, add more values in Timezone.
 
 4. If you want to exclude instances from stopping, set defined tags below for individual compute and other instances.
 
     ![Control.Nightly-Stop: FALSE](images/tag_nigthly-stop_false.png)
 
-5. If you want to run nightly-stop at different times for each time zone, set defined tags - Control.Timezone for specific compartment.
+5. If you want to run nightly-stop at different times for each time zone, set defined tags - `Control.Timezone` for specific compartment.
 
     ![Control.Timezone: UTC+09:00](images/tag_timezone_in_compartment_level.png)
 
@@ -69,7 +69,7 @@ And change the license models of your Databases and others to BYOL.
 
 1. Create a Compute Instance.
 
-2. Install OCI CLI and configure the CLI. And install OCI SDK for Python
+2. Install OCI CLI and configure the CLI in the created instance. And install OCI SDK for Python.
 
 3. Clone this repository.
 
@@ -77,16 +77,18 @@ And change the license models of your Databases and others to BYOL.
 
 5. Run Example
 
-    - Target: all instances in the compartments that are tagged `Control.Timezone: UTC+09:00`
+    - Target:
+    
+        * all instances in the compartments that are tagged `Control.Timezone: UTC+09:00`
 
-        ```run_nightly-stop.sh UTC+09:30 include```
+        ```$ run_nightly-stop.sh UTC+09:30 include```
 
     - Target: Except for those that are scheduled to run on other schedules.
 
         * all instances in the compartments that are no tagged `Control.Timezone`
         * all instances in the compartments that have other values, not `UTC+07:00`, `UTC+08:00`, `UTC+09:30` in `Control.Timezone`
 
-        ```run_nightly-stop.sh UTC+07:00,UTC+08:00,UTC+09:30 exclude```
+        ```$ run_nightly-stop.sh UTC+07:00,UTC+08:00,UTC+09:30 exclude```
 
 6. Use cron as your scheduler.
 

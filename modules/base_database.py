@@ -3,12 +3,22 @@ from modules.utils import *
 
 service_name = 'Oracle Base Database'
 
-def stop_base_database_systems(config, signer, compartments):
+def stop_base_database_systems(config, signer, compartments, filter_tz, filter_mode):
     target_resources = []
 
     print("Listing all {} DB systems... (* is marked for stop)".format(service_name))
     for compartment in compartments:
-        print("  compartment: {}".format(compartment.name))
+        print("  compartment: {}, timezone: {}".format(compartment.name, compartment.timezone))
+
+        if filter_mode == "include":
+            if compartment.timezone not in filter_tz:
+                print("      (skipped) Target timezones: {}".format(filter_tz))
+                continue
+        else:
+            if compartment.timezone in filter_tz:
+                print("      (skipped) Target timezones: all timezone excluding {}".format(filter_tz))
+                continue
+            
         db_systems = _get_db_system_list(config, signer, compartment.id)
         for db_system in db_systems:
             go = 0
@@ -32,9 +42,10 @@ def stop_base_database_systems(config, signer, compartments):
                     if (db_node.lifecycle_state == 'AVAILABLE'):
                         print("        * node:{} ({})".format(db_node.hostname, db_node.lifecycle_state))
                         db_node.compartment_name = compartment.name
-                        db_node.display_name = db_system.display_name
+                        db_node.display_name = db_system.display_name + " - Node: " + db_node.hostname
                         db_node.region = config["region"]
                         db_node.defined_tags = db_system.defined_tags
+                        db_node.service_name = service_name
                         target_resources.append(db_node)
                     else:
                         print("          node:{} ({})".format(db_node.hostname, db_node.lifecycle_state))
@@ -56,11 +67,12 @@ def stop_base_database_systems(config, signer, compartments):
             if response.lifecycle_state == 'STOPPING':
                 #print("    stop requested: {} ({})".format(response.hostname, response.lifecycle_state))
                 print("    stop requested: {} ({}) in {}".format(response.hostname, response.lifecycle_state, resource.compartment_name))
-                notify(config, signer, service_name, resource, request_date, 'STOP')
             else:
                 print("---------> error stopping {} ({})".format(response.hostname, response.lifecycle_state))
 
     print("\nAll {} DB systems stopped!".format(service_name))
+
+    return target_resources    
 
 def change_base_database_license(config, signer, compartments):
     target_resources = []
@@ -105,7 +117,7 @@ def change_base_database_license(config, signer, compartments):
         else:
             if response.lifecycle_state == 'UPDATING':
                 print("    change requested: {} ({})".format(response.display_name, response.lifecycle_state))
-                notify(config, signer, service_name, resource, request_date, 'BYOL')
+                send_license_type_change_notification(config, signer, service_name, resource, request_date, 'BYOL')
             else:
                 print("---------> error changing {} ({})".format(response.display_name, response.lifecycle_state))
 

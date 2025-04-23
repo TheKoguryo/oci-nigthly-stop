@@ -3,12 +3,22 @@ from modules.utils import *
 
 service_name = 'Integration Cloud'
 
-def stop_integration_cloud(config, signer, compartments):
+def stop_integration_cloud(config, signer, compartments, filter_tz, filter_mode):
     target_resources = []
 
     print("Listing all {}... (* is marked for stop)".format(service_name))
     for compartment in compartments:
-        print("  compartment: {}".format(compartment.name))
+        print("  compartment: {}, timezone: {}".format(compartment.name, compartment.timezone))
+
+        if filter_mode == "include":
+            if compartment.timezone not in filter_tz:
+                print("      (skipped) Target timezones: {}".format(filter_tz))
+                continue
+        else:
+            if compartment.timezone in filter_tz:
+                print("      (skipped) Target timezones: all timezone excluding {}".format(filter_tz))
+                continue
+            
         resources = _get_resource_list(config, signer, compartment.id)
         for resource in resources:
             go = 0
@@ -25,6 +35,7 @@ def stop_integration_cloud(config, signer, compartments):
             if (go == 1):
                 print("    * {} ({}) in {}".format(resource.display_name, resource.lifecycle_state, compartment.name))
                 resource.compartment_name = compartment.name
+                resource.service_name = service_name
                 resource.region = config["region"]
                 target_resources.append(resource)
             else:
@@ -43,11 +54,12 @@ def stop_integration_cloud(config, signer, compartments):
         else:
             if response.lifecycle_state == 'UPDATING':
                 print("    stop requested: {} ({}) in {}".format(response.display_name, response.lifecycle_state, resource.compartment_name))
-                notify(config, signer, service_name, resource, request_date, 'STOP')
             else:
                 print("---------> error stopping {} ({})".format(response.display_name, response.lifecycle_state))
 
     print("\nAll {} stopped!".format(service_name))
+
+    return target_resources    
 
 def change_integration_cloud_license(config, signer, compartments):
     target_resources = []
@@ -90,11 +102,11 @@ def change_integration_cloud_license(config, signer, compartments):
         else:
             if response.lifecycle_state == 'UPDATING':
                 print("    change requested: {} ({})".format(response.display_name, response.lifecycle_state))
-                notify(config, signer, service_name, resource, request_date, 'BYOL')                
+                send_license_type_change_notification(config, signer, service_name, resource, request_date, 'BYOL')                
             else:
                 print("---------> error changing {} ({})".format(response.display_name, response.lifecycle_state))
 
-    print("\nAll {} changed!".format(service_name))
+    print("\nAll {} changed!".format(service_name)) 
 
 def _get_resource_list(config, signer, compartment_id):
     resources = []
@@ -135,7 +147,7 @@ def _change_license_model(config, signer, resource_id, is_byol):
     )
 
     if response.data.lifecycle_state == 'INACTIVE':
-        return response.data
+        return response.data, None
     
     stop_response = object.update_integration_instance(
         resource_id,
@@ -144,6 +156,12 @@ def _change_license_model(config, signer, resource_id, is_byol):
 
     response = object.get_integration_instance(
         resource_id
+    )
+    
+    oci.wait_until(
+        object, 
+        response, 
+        evaluate_response=lambda r: r.data.lifecycle_state == 'ACTIVE'
     )
 
     return response.data, stop_response.headers['Date']

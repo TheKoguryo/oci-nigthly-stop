@@ -50,4 +50,66 @@ def get_tenancy_name(config, signer, tenancy_id):
 
     tenancy_name = identity.get_tenancy(tenancy_id).data.name
 
-    return tenancy_name
+    return tenancy_name 
+
+def get_email(config, signer, tenancy_id, domain_display_name, user_name):
+    user_email = ""
+
+    if domain_display_name == "" or domain_display_name is None:
+        domain_display_name = "default"
+
+    identity_client = oci.identity.IdentityClient(config, signer=signer)   
+
+    list_domains_response = identity_client.list_domains(
+        compartment_id=tenancy_id,
+        display_name=domain_display_name,
+        lifecycle_state="ACTIVE")
+
+    domain_endpoint = list_domains_response.data[0].url;
+
+    identity_domains_client = oci.identity_domains.IdentityDomainsClient(config, domain_endpoint, signer=signer)
+
+    list_users_response = identity_domains_client.list_users(
+        filter="userName eq \"" + user_name + "\"")        
+
+    if len(list_users_response.data.resources) > 0:
+        user = list_users_response.data.resources[0]
+
+        for email in user.emails:
+            if email.primary == True:
+                user_email = email.value
+                break
+
+    print("user_email: " + user_email)
+
+    return user_email
+
+def get_user_name_by_user_id(config, signer, tenancy_id, domain_display_name, user_id):
+    user_email = ""
+    user_name = ""
+
+    if domain_display_name == "" or domain_display_name is None:
+        domain_display_name = "default"
+
+    identity_client = oci.identity.IdentityClient(config, signer=signer)   
+
+    list_domains_response = identity_client.list_domains(
+        compartment_id=tenancy_id,
+        display_name=domain_display_name,
+        lifecycle_state="ACTIVE")
+
+    domain_endpoint = list_domains_response.data[0].url;
+
+    identity_domains_client = oci.identity_domains.IdentityDomainsClient(config, domain_endpoint, signer=signer)
+
+    try:
+        user = identity_domains_client.get_user(user_id=user_id).data
+    except oci.exceptions.ServiceError as e:
+        print("---------> error. status: {}".format(e))
+        pass
+    else:
+        user_name = domain_display_name + "/" + user.display_name
+        print("user_id: " + user_id)
+        print("user_name: " + user_name)   
+
+    return user_name

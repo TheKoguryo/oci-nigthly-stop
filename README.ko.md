@@ -1,11 +1,9 @@
 # oci-nigthly-stop
 [![en](https://img.shields.io/badge/lang-en-red.svg)](https://github.com/TheKoguryo/oci-nigthly-stop/blob/master/README.md)
-[![ko](https://img.shields.io/badge/lang-ko-blue.svg)](https://github.com/TheKoguryo/oci-nigthly-stop/blob/master/README.ko.md)
 
-Stop your OCI instances at night.
-And change the license models of your Databases and others to BYOL.
+밤에 OCI 인스턴스를 종료시킵니다. 그리고 허용되는 환경에서는 데이터베이스 등의 라이센스 모델을 BYOL로 변경시킵니다.
 
-## Supported Services for Stop
+## Nightly Stop을 지원하는 OCI 서비스 목록
 - Analytics Cloud
 - Compute
 - Data Integration
@@ -21,7 +19,7 @@ And change the license models of your Databases and others to BYOL.
 - Oracle Integration 3
 - Visual Builder
 
-## Supported Services for Changing to BYOL 
+## BYOL로 라이센스 모델 변경을 지원하는 지원하는 OCI 서비스 목록
 - Analytics Cloud
 - Database
     * Base Database
@@ -30,24 +28,24 @@ And change the license models of your Databases and others to BYOL.
 - Oracle Integration 3
 
 
-## Prerequisites
+## 필수조건
 - [OCI SDK for Python](https://docs.oracle.com/en-us/iaas/Content/API/SDKDocs/pythonsdk.htm#SDK_for_Python)
 - Python 3.6 and above
     * [Supported Python Versions and Operating Systems](https://docs.oracle.com/en-us/iaas/Content/API/SDKDocs/pythonsdk.htm#pythonsdk_topic-supported_python_versions__SupportedPythonVersionsandOperatingSystems)
 - Pre-created oci-cli config file (~/.oci/config)
     * [OCI CLI Quickstart](https://docs.oracle.com/en-us/iaas/Content/API/SDKDocs/cliinstall.htm)
 
-## How to use
+## 사용하는 방법
 
-### How to add tag
+### 필요한 태그를 추가하는 방법
 
-1. Go to OCI Console.
+1. OCI Console로 이동합니다.
 
-2. Create Tag Namespaces in Root compartment
+2. Root 컴파트먼트에서 Tag Namespaces를 만듭니다.
 
     - Namespace Definition Name: `Control`
 
-3. Create Tag Key Definitions
+3. Tag Key Definitions을 만듭니다.
 
     |Tag Key       |Description                             | Tag Value Type|Value                                                      |
     |--------------|----------------------------------------|---------------|-----------------------------------------------------------|
@@ -55,54 +53,46 @@ And change the license models of your Databases and others to BYOL.
     |`BYOL`        |If FALSE, does not change license model | List          |`TRUE`<br> `FALSE`                                         |
     |`Timezone`    |Compartment level tag                   | List          |`UTC+07:00`<br> `UTC+08:00`<br> `UTC+09:00`<br> `UTC+09:30`|
 
-    - If you need, add more values in Timezone.
+    - 필요하면, Timezone에 필요한 시간대를 더 추가합니다.
 
-4. If you want to exclude instances from stopping, set defined tags below for individual compute and other instances.
+4. Nigthly Stop 대상에서 제외시키고 싶다면, 개별 인스턴스의 태그에 그림과 같이 defined tags를 추가합니다.
 
     ![Control.Nightly-Stop: FALSE](images/tag_nigthly-stop_false.png)
 
-5. If you want to run nightly-stop at different times for each time zone, set defined tags - `Control.Timezone` for specific compartment.
+5. 하나의 테넌시에서 여러 타임존대에 있는 유저들이 사용하는 경우, 타임존에 따라 Nightly Stop을 수행하는 시간을 달리하고 싶으면, 각 Compartment에 defined tags로 `Control.Timezone`을 그림과 같이 추가합니다.
 
     ![Control.Timezone: UTC+09:00](images/tag_timezone_in_compartment_level.png)
 
-### Required OCI IAM Policy
+### oci-nightly-stop을 실행하는 방법
 
-TBD
+1. Compute 인스턴스를 만듭니다.
 
-Instance Principal
+2. 만든 Compute 인스턴스에 OCI CLI를 설치하고 구성합니다. 그리고 OCI SDK for Python을 설치합니다.
 
-Policy List
+3. 이 리파지토리를 클론합니다.
 
-### How to run oci-nightly-stop
+4. configuration.py 파일을 열어서, 각자에 맞는 환경값을 설정합니다.
 
-1. Create a Compute Instance.
+5. 실행예시
 
-2. Install OCI CLI and configure the CLI in the created instance. And install OCI SDK for Python.
-
-3. Clone this repository.
-
-4. Open configuration.py file and set your enviroment values.
-
-5. Run Example
-
-    - Target:
+    - 대상:
     
-        * all instances in the compartments that are tagged `Control.Timezone: UTC+09:00`
+        * `Control.Timezone: UTC+09:00`가 태그된 Compartment에 속한 모든 인스턴스
 
         ```$ run_nightly-stop.sh UTC+09:30 include```
 
-    - Target: Except for those that are scheduled to run on other schedules.
+    - 대상: 다른 시간대에 스케줄을 수행한 것을 제외하고, 그 이외 모든 대상
 
-        * all instances in the compartments that are no tagged `Control.Timezone`
-        * all instances in the compartments that have other values, not `UTC+07:00`, `UTC+08:00`, `UTC+09:30` in `Control.Timezone`
+        * `Control.Timezone` 태그가 없는 Compartment에 속한 모든 인스턴스
+        * Compartment에 `Control.Timezone` 태그가 있고, 그 값이 `UTC+07:00`, `UTC+08:00`, `UTC+09:30`이 아닌 경우, 해당  Compartment에 속한 모든 인스턴스
 
         ```$ run_nightly-stop.sh UTC+07:00,UTC+08:00,UTC+09:30 exclude```
 
-6. Use cron as your scheduler.
+6. cron에 스케줄을 설정합니다.
 
-    - Run `crontab -e`
+    - `crontab -e` 실행
 
-    - Create your schedules.
+    - 원하는 스케줄을 아래 예시와 같이 추가합니다.
 
         ```
         ###############################################################################

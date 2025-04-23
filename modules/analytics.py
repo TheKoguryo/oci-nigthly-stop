@@ -3,11 +3,22 @@ from modules.utils import *
 
 service_name = 'Analytics Cloud'
 
-def stop_analytics(config, signer, compartments):
+def stop_analytics(config, signer, compartments, filter_tz, filter_mode):
     target_resources = []
 
     print("Listing all {}... (* is marked for stop)".format(service_name))
     for compartment in compartments:
+        print("  compartment: {}, timezone: {}".format(compartment.name, compartment.timezone))
+
+        if filter_mode == "include":
+            if compartment.timezone not in filter_tz:
+                print("      (skipped) Target timezones: {}".format(filter_tz))
+                continue
+        else:
+            if compartment.timezone in filter_tz:
+                print("      (skipped) Target timezones: all timezone excluding {}".format(filter_tz))
+                continue
+                    
         print("  compartment: {}".format(compartment.name))
         resources = _get_resource_list(config, signer, compartment.id)
         for resource in resources:
@@ -25,6 +36,7 @@ def stop_analytics(config, signer, compartments):
             if (go == 1):
                 print("    * {} ({}) in {}".format(resource.name, resource.lifecycle_state, compartment.name))
                 resource.compartment_name = compartment.name
+                resource.service_name = service_name
                 resource.region = config["region"]
                 target_resources.append(resource)
             else:
@@ -43,11 +55,12 @@ def stop_analytics(config, signer, compartments):
         else:
             if response.lifecycle_state == 'UPDATING':
                 print("    stop requested: {} ({}) in {}".format(response.name, response.lifecycle_state, resource.compartment_name))
-                notify(config, signer, service_name, resource, request_date, 'STOP')
             else:
-                print("---------> error stopping {} ({})".format(response.display_name, response.lifecycle_state))
+                print("---------> error stopping {} ({})".format(response.name, response.lifecycle_state))
 
     print("\nAll {} stopped!".format(service_name))
+
+    return target_resources    
 
 def change_analytics_license(config, signer, compartments):
     target_resources = []
@@ -90,7 +103,7 @@ def change_analytics_license(config, signer, compartments):
             pass
         else:
             print("    changed to: {} ({})".format(response.name, response.license_type))
-            notify(config, signer, service_name, resource, request_date, 'BYOL')
+            send_license_type_change_notification(config, signer, service_name, resource, request_date, 'BYOL')
 
 
     print("\nAll {} changed!".format(service_name))

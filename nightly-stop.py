@@ -23,15 +23,19 @@ from modules.utils import *
 from configuration import *
 
 class Compartment:
-    def __init__(self, id, name):
+    def __init__(self, id, name, timezone):
         self.id = id 
-        self.name = name        
+        self.name = name    
+        self.timezone = timezone    
 
     def __str__(self):
-        return f"id: {self.id}, name: {self.name}"
+        return f"id: {self.id}, name: {self.name}, timezone: {self.timezone}"
 
     def __eq__(self, other):
-        return (self.id == other.id) and (self.name == other.name)
+        return (self.id == other.id) and (self.name == other.name) and (self.timezone == other.timezone)
+
+def parse_csv(value):
+    return [v.strip() for v in value.split(',') if v.strip()]
     
 ##########################################################################
 # set parser
@@ -39,12 +43,32 @@ class Compartment:
 def set_parser_arguments():
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('-regions', nargs="*", default="", dest='regions', help='List target regions. All regions will be counted if null')
-    parser.add_argument('-excl_regions', nargs="*", default="", dest='excl_regions', help='List excluded regions.')
+    parser.add_argument('--regions', nargs="*", default="", dest='regions', help='List target regions. All regions will be counted if null')
+    parser.add_argument('--excl_regions', nargs="*", default="", dest='excl_regions', help='List excluded regions.')
+    parser.add_argument('--filter-tz', type=parse_csv, dest='filter_tz', help='Comma-separated list of timezones to include or exclude')
+    parser.add_argument('--filter-mode', choices=['include', 'exclude'], dest='filter_mode', help='Filtering mode: include = only these timezones, exclude = all but these')
 
     result = parser.parse_args()
    
     return result 
+
+##########################################################################
+# get created_by
+##########################################################################
+def get_created_by(resource):
+    created_by = None
+
+    if ('Oracle-Tags' in resource.defined_tags) and ('CreatedBy' in resource.defined_tags['Oracle-Tags']):  
+        created_by = str(resource.defined_tags['Oracle-Tags']['CreatedBy'])
+        #print("created_by: " + created_by)   
+
+        #if created_by != "":
+        #    created_by = created_by.replace("oracleidentitycloudservice/", "")
+        #    created_by = created_by.replace("default/", "")
+
+        #print("created_by: " + created_by)
+    
+    return created_by
 
 ##########################################################################
 # Main
@@ -67,6 +91,16 @@ if args.excl_regions:
     print("excl_regions: %r" % args.excl_regions)
     excluded_region_names = args.excl_regions
 
+filter_tz = []
+filter_mode = "include"
+
+if args.filter_tz:
+    print("filter_tz: %r" % args.filter_tz)
+    filter_tz = args.filter_tz
+
+if args.filter_mode:
+    print("filter_mode: %r" % args.filter_mode)
+    filter_mode = args.filter_mode
 
 config = None
 tenancy_id = None
@@ -124,7 +158,7 @@ usage_api_client = oci.usage_api.UsageapiClient(config=config, signer=signer)
 
 timezone = pytz.timezone('UTC')
 today = datetime.now(timezone).replace(hour=0, minute=0, second=0, microsecond=0)
-d_day_started = today - timedelta(days=10)
+d_day_started = today - timedelta(days=14)
 
 usages = usage_api_client.request_summarized_usages(
             request_summarized_usages_details=oci.usage_api.models.RequestSummarizedUsagesDetails(
@@ -138,6 +172,7 @@ usages = usage_api_client.request_summarized_usages(
         ).data
 
 target = dict()
+identity_client = oci.identity.IdentityClient(config, signer=signer)
 for item in usages.items:
     if item.region not in target_regions_names:
         continue
@@ -148,7 +183,12 @@ for item in usages.items:
     if item.computed_amount is None or item.computed_amount == 0.0:
         continue
 
-    compartment = Compartment(item.compartment_id, item.compartment_name)
+    compartment_timezone = None
+    comp = identity_client.get_compartment(compartment_id=item.compartment_id).data
+    if ('Control' in comp.defined_tags) and ('Timezone' in comp.defined_tags['Control']):     
+        compartment_timezone = comp.defined_tags['Control']['Timezone']
+
+    compartment = Compartment(item.compartment_id, item.compartment_name, str(compartment_timezone))
 
     isNew = False
     if item.region in target:
@@ -170,6 +210,7 @@ for item in usages.items:
         print("region: {:15s} compartment_name: {:35s} service: {}".format(item.region, item.compartment_name, item.service))        
 
 
+target_resources = []
 for region in target:
     print ("\n============[ {} ]================".format(region))
 
@@ -180,81 +221,190 @@ for region in target:
         print ("\n>>> {}".format(service_name))
         target_compartments = target[region][service_name]
     
-        stop_compute_instances(config, signer, target_compartments)
+        resources = stop_compute_instances(config, signer, target_compartments, filter_tz, filter_mode)
+        target_resources += resources
 
     if "Database" in target[region]:
         service_name = "Database"
         print ("\n>>> {}".format(service_name))
         target_compartments = target[region][service_name]
 
-
-        stop_base_database_systems(config, signer, target_compartments)
         if is_internal_tenancy == 'TRUE':
             change_base_database_license(config, signer, target_compartments)
 
-        stop_autonomous_database(config, signer, target_compartments)
+        resources = stop_base_database_systems(config, signer, target_compartments, filter_tz, filter_mode)
+        target_resources += resources
+
         if is_internal_tenancy == 'TRUE':
             change_autonomous_database_license(config, signer, target_compartments)    
+
+        resources = stop_autonomous_database(config, signer, target_compartments, filter_tz, filter_mode)
+        target_resources += resources
 
     if "Digital Assistant" in target[region]:
         service_name = "Digital Assistant"
         print ("\n>>> {}".format(service_name))
         target_compartments = target[region][service_name]
 
-        stop_digital_assitants(config, signer, target_compartments)
+        resources = stop_digital_assitants(config, signer, target_compartments, filter_tz, filter_mode)
+        target_resources += resources
 
     if "Analytics" in target[region]:
         service_name = "Analytics"
         print ("\n>>> {}".format(service_name))
         target_compartments = target[region][service_name]
 
-        stop_analytics(config, signer, target_compartments)
         if is_internal_tenancy == 'TRUE':
             change_analytics_license(config, signer, target_compartments) 
+
+        resources = stop_analytics(config, signer, target_compartments, filter_tz, filter_mode)
+        target_resources += resources
 
     if "Visual Builder" in target[region]:
         service_name = "Visual Builder"
         print ("\n>>> {}".format(service_name))
         target_compartments = target[region][service_name]
 
-        stop_visual_builder(config, signer, target_compartments)
+        resources = stop_visual_builder(config, signer, target_compartments, filter_tz, filter_mode)
+        target_resources += resources
 
     if "MySQL" in target[region]:
         service_name = "MySQL"
         print ("\n>>> {}".format(service_name))
         target_compartments = target[region][service_name]
 
-        stop_mysql(config, signer, target_compartments)
+        resources = stop_mysql(config, signer, target_compartments, filter_tz, filter_mode)
+        target_resources += resources
 
     if "Integration Service" in target[region]:
         service_name = "Integration Service"
         print ("\n>>> {}".format(service_name))
         target_compartments = target[region][service_name]
 
-        stop_integration_cloud(config, signer, target_compartments)
         if is_internal_tenancy == 'TRUE':
             change_integration_cloud_license(config, signer, target_compartments)
+
+        resources = stop_integration_cloud(config, signer, target_compartments, filter_tz, filter_mode)
+        target_resources += resources
 
     if "Data Science" in target[region]:
         service_name = "Data Science"
         print ("\n>>> {}".format(service_name))
         target_compartments = target[region][service_name]
 
-        stop_data_science_notebook_sessions(config, signer, target_compartments)
-        stop_data_science_model_deployments(config, signer, target_compartments)
+        resources = stop_data_science_notebook_sessions(config, signer, target_compartments, filter_tz, filter_mode)
+        target_resources += resources
+
+        resources = stop_data_science_model_deployments(config, signer, target_compartments, filter_tz, filter_mode)
+        target_resources += resources
 
     if "GoldenGate" in target[region]:
         service_name = "GoldenGate"
         print ("\n>>> {}".format(service_name))
         target_compartments = target[region][service_name]
 
-        stop_goldengate(config, signer, target_compartments)
         if is_internal_tenancy == 'TRUE':
             change_goldengate_license(config, signer, target_compartments)
+
+        resources = stop_goldengate(config, signer, target_compartments, filter_tz, filter_mode)
+        target_resources += resources
 
     if "Data Integration" in target[region]:
         service_name = "Data Integration"
         print ("\n>>> {}".format(service_name))
         target_compartments = target[region][service_name]
 
-        stop_data_integration(config, signer, target_compartments)
+        resources = stop_data_integration(config, signer, target_compartments, filter_tz, filter_mode)
+        target_resources += resources
+
+###
+revised_target_resources = dict()
+
+for resource in target_resources:
+    created_by = get_created_by(resource)
+    owner_email = None
+
+    if created_by is not None:
+        if created_by == 'oke':
+            oke_cluster_id = resource.metadata['oke-cluster-id']
+
+            config["region"] = resource.region
+            container_engine_client = oci.container_engine.ContainerEngineClient(config=config, signer=signer)
+            
+            try:
+                get_cluster_response = container_engine_client.get_cluster(cluster_id=oke_cluster_id)
+                created_by = get_created_by(get_cluster_response.data)
+            except oci.exceptions.ServiceError as e:
+                print("---------> error. status: {}".format(e))
+                pass
+        elif created_by.startswith('ocid1.nodepool.'):
+            node_pool_id = created_by
+
+            config["region"] = resource.region
+            container_engine_client = oci.container_engine.ContainerEngineClient(config=config, signer=signer)
+
+            try:
+                get_node_pool_response = container_engine_client.get_node_pool(node_pool_id=node_pool_id)
+                created_by = get_created_by(get_node_pool_response.data)
+            except oci.exceptions.ServiceError as e:
+                print("---------> error. status: {}".format(e))
+                pass            
+
+        if '/' in created_by:
+            owner_email = created_by.rsplit('/', 1)[1]
+        else:
+            owner_email = created_by
+
+        if isEmailFormat(owner_email) == False:
+            if '/' in created_by:
+                domain_display_name = created_by.rsplit('/', 1)[0]
+                user_name = created_by.rsplit('/', 1)[1]
+            else:
+                domain_display_name = 'default'
+                user_name = created_by                
+
+            email = get_email(config, signer, tenancy_id, domain_display_name, user_name)
+            print("created_by: " + created_by)
+            print("email: " + str(email))
+
+            if email is not None:
+                owner_email = email      
+            else:
+                owner_email = ""            
+
+        if owner_email != "":
+            if owner_email in revised_target_resources:
+                revised_target_resources[owner_email].append(resource)
+            else:
+                revised_target_resources[owner_email] = []
+                revised_target_resources[owner_email].append(resource)
+        else:
+            if created_by in revised_target_resources:
+                revised_target_resources[created_by].append(resource)
+            else:
+                revised_target_resources[created_by] = []
+                revised_target_resources[created_by].append(resource)
+
+print("######")
+for created_by in revised_target_resources:
+    print("created_by: " + created_by)
+    region = ""
+    for resource in revised_target_resources[created_by]:
+        if resource.region == "iad":
+            resource.region = "us-ashburn-1"
+        elif resource.region == "phx":
+            resource.region = "us-phoenix-1"
+
+        if region != resource.region:
+            print("  " + resource.region)
+            region = resource.region
+        
+        if hasattr(resource, 'display_name'):
+            print("    {} | {} in {}".format(resource.service_name, resource.display_name, resource.compartment_name))
+        else:
+            print("    {} | {} in {}".format(resource.service_name, resource.name, resource.compartment_name))
+
+    try:
+        send_nightly_stop_notification(config, signer, created_by, revised_target_resources[created_by])
+    except Exception as ex:
+        print("ERROR: ", ex, flush=True)

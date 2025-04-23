@@ -1,20 +1,35 @@
 import oci
+import socket
 from modules.utils import *
 
 service_name = 'Compute'
 
-def stop_compute_instances(config, signer, compartments):
+def stop_compute_instances(config, signer, compartments, filter_tz, filter_mode):
     target_resources = []
 
     print("Listing all {} instances... (* is marked for stop)".format(service_name))
     for compartment in compartments:
-        print("  compartment: {}".format(compartment.name))
+        print("  compartment: {}, timezone: {}".format(compartment.name, compartment.timezone))
+
+        if filter_mode == "include":
+            if compartment.timezone not in filter_tz:
+                print("      (skipped) Target timezones: {}".format(filter_tz))
+                continue
+        else:
+            if compartment.timezone in filter_tz:
+                print("      (skipped) Target timezones: all timezone excluding {}".format(filter_tz))
+                continue
+
         resources = _get_resource_list(config, signer, compartment.id)
         for resource in resources:
             go = 0
             if (resource.lifecycle_state == 'RUNNING'):
                 if IS_FIRST_FRIDAY:
                     go = 1
+
+                    # Don't stop the VM that run this nightly-stop.
+                    if resource.display_name == socket.gethostname():
+                        go = 0
                     
                 if ('Control' in resource.defined_tags) and ('Nightly-Stop' in resource.defined_tags['Control']):     
                     if (resource.defined_tags['Control']['Nightly-Stop'].upper() != 'FALSE'):    
@@ -23,8 +38,12 @@ def stop_compute_instances(config, signer, compartments):
                     go = 1
 
             if (go == 1):
+                if "-instance-pool-" in str(resource.display_name):
+                    continue
+                
                 print("    * {} ({}) in {}".format(resource.display_name, resource.lifecycle_state, compartment.name))
                 resource.compartment_name = compartment.name
+                resource.service_name = service_name
                 target_resources.append(resource)
             else:
                 if ('Control' in resource.defined_tags) and ('Nightly-Stop' in resource.defined_tags['Control']):  
@@ -42,11 +61,12 @@ def stop_compute_instances(config, signer, compartments):
         else:
             if response.lifecycle_state == 'STOPPING':
                 print("    stop requested: {} ({}) in {}".format(response.display_name, response.lifecycle_state, resource.compartment_name))
-                notify(config, signer, service_name, resource, request_date, 'STOP')
             else:
                 print("---------> error stopping {} ({})".format(response.display_name, response.lifecycle_state))
 
     print("\nAll {} instances stopped!".format(service_name))
+
+    return target_resources
 
 
 def _get_resource_list(config, signer, compartment_id):

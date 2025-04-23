@@ -3,12 +3,22 @@ from modules.utils import *
 
 service_name = 'Data Science - Model Deployment'
 
-def stop_data_science_model_deployments(config, signer, compartments):
+def stop_data_science_model_deployments(config, signer, compartments, filter_tz, filter_mode):
     target_resources = []
 
     print("Listing all {}... (* is marked for stop)".format(service_name))
     for compartment in compartments:
-        print("  compartment: {}".format(compartment.name))
+        print("  compartment: {}, timezone: {}".format(compartment.name, compartment.timezone))
+
+        if filter_mode == "include":
+            if compartment.timezone not in filter_tz:
+                print("      (skipped) Target timezones: {}".format(filter_tz))
+                continue
+        else:
+            if compartment.timezone in filter_tz:
+                print("      (skipped) Target timezones: all timezone excluding {}".format(filter_tz))
+                continue
+            
         resources = _get_resource_list(config, signer, compartment.id)
         for resource in resources:
             go = 0
@@ -25,7 +35,19 @@ def stop_data_science_model_deployments(config, signer, compartments):
             if (go == 1):
                 print("    * {} ({}) in {}".format(resource.display_name, resource.lifecycle_state, compartment.name))
                 resource.compartment_name = compartment.name
-                resource.region = config["region"]                
+                resource.service_name = service_name
+                resource.region = config["region"]            
+
+                created_by = ""
+                try:
+                    created_by = str(resource.defined_tags['Oracle-Tags']['CreatedBy'])
+                except Exception as ex:
+                    print("ERROR: ", ex, flush=True)
+                        
+                if (created_by.startswith("ocid1.datasciencenotebooksession")):
+                    notebook_session_created_by = _get_notebook_session_created_by(config, signer, created_by)
+                    resource.defined_tags['Oracle-Tags']['CreatedBy'] = notebook_session_created_by
+
                 target_resources.append(resource)
             else:
                 if ('Control' in resource.defined_tags) and ('Nightly-Stop' in resource.defined_tags['Control']):  
@@ -42,12 +64,13 @@ def stop_data_science_model_deployments(config, signer, compartments):
             pass
         else:
             if response.lifecycle_state == 'UPDATING':
-                print("    stop requested: {} ({}) in {}".format(response.display_name, response.lifecycle_state, resource.compartment_name))
-                notify(config, signer, service_name, resource, request_date, 'STOP')                
+                print("    stop requested: {} ({}) in {}".format(response.display_name, response.lifecycle_state, resource.compartment_name))              
             else:
                 print("---------> error stopping {} ({})".format(response.display_name, response.lifecycle_state))
 
     print("\nAll {} stopped!".format(service_name))
+
+    return target_resources    
 
 def _get_resource_list(config, signer, compartment_id):
     object = oci.data_science.DataScienceClient(config=config, signer=signer)
@@ -70,3 +93,21 @@ def _resource_action(config, signer, resource_id, action):
         )  
 
     return response.data, stop_response.headers['Date']
+
+def _get_notebook_session_created_by(config, signer, notebook_session_id):
+    object = oci.data_science.DataScienceClient(config=config, signer=signer)
+    get_notebook_session_response = object.get_notebook_session(notebook_session_id)
+
+    created_by = ""
+    try:
+        created_by = str(get_notebook_session_response.data.defined_tags['Oracle-Tags']['CreatedBy'])
+    except Exception as ex:   
+        print("ERROR: ", ex, flush=True)
+        user_id = get_notebook_session_response.data.created_by
+
+        domain_display_name = "default"
+
+        user_name = get_user_name_by_user_id(config, signer, signer.tenancy_id, domain_display_name, user_id)
+        created_by = user_name
+    
+    return created_by

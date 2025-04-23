@@ -3,17 +3,27 @@ from modules.utils import *
 
 service_name = 'Golden Gate'
 
-def stop_goldengate(config, signer, compartments):
+def stop_goldengate(config, signer, compartments, filter_tz, filter_mode):
     target_resources = []
 
     print("Listing all {}... (* is marked for stop)".format(service_name))
     for compartment in compartments:
-        print("  compartment: {}".format(compartment.name))
+        print("  compartment: {}, timezone: {}".format(compartment.name, compartment.timezone))
+
+        if filter_mode == "include":
+            if compartment.timezone not in filter_tz:
+                print("      (skipped) Target timezones: {}".format(filter_tz))
+                continue
+        else:
+            if compartment.timezone in filter_tz:
+                print("      (skipped) Target timezones: all timezone excluding {}".format(filter_tz))
+                continue
+            
         resources = _get_resource_list(config, signer, compartment.id)
         for resource in resources:
             go = 0
 
-            if (resource.lifecycle_state == 'ACTIVE'):
+            if (resource.lifecycle_state == 'ACTIVE' or resource.lifecycle_state == 'NEEDS_ATTENTION'):
                 if IS_FIRST_FRIDAY:
                     go = 1
 
@@ -26,6 +36,7 @@ def stop_goldengate(config, signer, compartments):
             if (go == 1):
                 print("    * {} ({}) in {}".format(resource.display_name, resource.lifecycle_state, compartment.name))
                 resource.compartment_name = compartment.name
+                resource.service_name = service_name
                 resource.region = config["region"]                
                 target_resources.append(resource)
             else:
@@ -43,12 +54,13 @@ def stop_goldengate(config, signer, compartments):
             pass
         else:
             if response.lifecycle_sub_state == 'STOPPING':
-                print("    stop requested: {} ({}) in {}".format(response.display_name, response.lifecycle_sub_state, resource.compartment_name))
-                notify(config, signer, service_name, resource, request_date, 'STOP')                 
+                print("    stop requested: {} ({}) in {}".format(response.display_name, response.lifecycle_sub_state, resource.compartment_name))              
             else:
                 print("---------> error stopping {} ({})".format(response.display_name, response.lifecycle_sub_state))
 
     print("\nAll {} stopped!".format(service_name))
+
+    return target_resources        
 
 def change_goldengate_license(config, signer, compartments):
     target_resources = []
@@ -91,7 +103,7 @@ def change_goldengate_license(config, signer, compartments):
         else:
             if response.lifecycle_state == 'UPDATING':
                 print("    change requested: {} ({}) - {}".format(response.display_name, response.lifecycle_state, response.license_model))
-                notify(config, signer, service_name, resource, request_date, 'BYOL')                 
+                send_license_type_change_notification(config, signer, service_name, resource, request_date, 'BYOL')                 
             else:
                 print("---------> error changing {} ({}) - {}".format(response.display_name, response.lifecycle_state, response.license_model))
 

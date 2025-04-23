@@ -4,6 +4,7 @@ export APPDIR=$HOME/oci-nigthly-stop
 
 cd $APPDIR
 
+
 ###########################################################
 # Main
 ###########################################################
@@ -11,7 +12,22 @@ echo "Start running at `date`..."
 echo
 start_time=$(date +%s)
 
-python3 $APPDIR/nightly-stop.py
+FILTER_TZ="NONE"
+FILTER_MODE="exclude"
+
+# Check the number of arguments
+if [ "$#" -eq 1 ]; then
+    FILTER_TZ=$1
+    FILTER_MODE="include"
+elif [ "$#" -ge 2 ]; then
+    FILTER_TZ=$1
+    FILTER_MODE=$2
+fi
+
+echo "Filtered Timezone: $FILTER_TZ"
+echo "Filter Mode: $FILTER_MODE"
+
+python3 -u $APPDIR/nightly-stop.py --filter-tz $FILTER_TZ --filter-mode $FILTER_MODE 
 
 echo
 echo "Completed at `date`.."

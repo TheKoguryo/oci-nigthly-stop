@@ -22,6 +22,10 @@ excluded_compartments = []
 target_region_names = []
 excluded_region_names = []
 
+# List resource ids to exclude
+excluded_resource_ids = []
+excluded_resource_ids.append('ocid1.autonomousdatabase..')
+
 # Set Email SMTP Server Info
 smtp_username = "ocid1.user..@ocid1.tenancy.."
 smtp_password = ""
@@ -33,3 +37,5 @@ sender_email = ""
 sender_name = "Nightly Stop"
 cc = None
 bcc = ""
+langugage="Korean"
+#langugage="English"

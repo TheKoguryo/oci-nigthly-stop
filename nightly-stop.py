@@ -355,7 +355,7 @@ for resource in target_resources:
         else:
             owner_email = created_by
 
-        if isEmailFormat(owner_email) == False:
+        if is_email_format(owner_email) == False:
             if '/' in created_by:
                 domain_display_name = created_by.rsplit('/', 1)[0]
                 user_name = created_by.rsplit('/', 1)[1]

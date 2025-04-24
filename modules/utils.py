@@ -37,7 +37,7 @@ def send_license_type_change_notification(config, signer, service_name, resource
 
         print("created_by: " + created_by)
 
-        if isEmailFormat(created_by) == True:
+        if is_email_format(created_by) == True:
             to = created_by
 
     if to is None:
@@ -146,12 +146,12 @@ def  send_nightly_stop_notification(config, signer, created_by, target_resources
         domain_display_name = 'default'
         user_name = created_by    
 
-    if isEmailFormat(user_name) == True:
+    if is_email_format(user_name) == True:
         to = user_name
     else:
         email = get_email(config, signer, configuration.tenancy_id, domain_display_name, user_name)
         print("email: " + str(email))
-        if email is not None and isEmailFormat(email) == True:
+        if email is not None and is_email_format(email) == True:
             to = email
 
     if to is None:
@@ -338,7 +338,7 @@ def send_email(sender_email, sender_name, to, cc, bcc, subject, body):
 
 
 
-def isEmailFormat(value):
+def is_email_format(value):
     obj = re.search(r'[\w.]+\@[\w.]+', value)
     if not obj:
         return False

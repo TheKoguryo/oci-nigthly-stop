@@ -10,7 +10,7 @@ from modules.identity import *
 from modules.compute import *
 from modules.autonomous_database import *
 from modules.base_database import *
-from modules.digital_assitant import *
+from modules.digital_assistant import *
 from modules.analytics import *
 from modules.visual_builder import *
 from modules.mysql import *

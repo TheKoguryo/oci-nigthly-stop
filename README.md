@@ -1,6 +1,6 @@
-# oci-nigthly-stop
-[![en](https://img.shields.io/badge/lang-en-red.svg)](https://github.com/TheKoguryo/oci-nigthly-stop/blob/master/README.md)
-[![ko](https://img.shields.io/badge/lang-ko-blue.svg)](https://github.com/TheKoguryo/oci-nigthly-stop/blob/master/README.ko.md)
+# oci-nightly-stop
+[![en](https://img.shields.io/badge/lang-en-red.svg)](https://github.com/TheKoguryo/oci-nightly-stop/blob/master/README.md)
+[![ko](https://img.shields.io/badge/lang-ko-blue.svg)](https://github.com/TheKoguryo/oci-nightly-stop/blob/master/README.ko.md)
 
 Stop your OCI instances at night.
 And change the license models of your Databases and others to BYOL.
@@ -59,7 +59,7 @@ And change the license models of your Databases and others to BYOL.
 
 4. If you want to exclude instances from stopping, set defined tags below for individual compute and other instances.
 
-    ![Control.Nightly-Stop: FALSE](images/tag_nigthly-stop_false.png)
+    ![Control.Nightly-Stop: FALSE](images/tag_nightly-stop_false.png)
 
 5. If you want to run nightly-stop at different times for each time zone, set defined tags - `Control.Timezone` for specific compartment.
 
@@ -106,18 +106,18 @@ Policy List
 
         ```
         ###############################################################################
-        # Crontab to run oci-nigthly-stop at 24:00 in each time zone
+        # Crontab to run oci-nightly-stop at 24:00 in each time zone
         ###############################################################################
         # UTC+09:30
-        30 14 * * * timeout 1h /home/opc/oci-nigthly-stop/run_nightly-stop.sh UTC+09:30 include >> /home/opc/oci-nigthly-stop/run_nightly-stop.sh_run.txt_`date +\%Y\%m\%d-\%H\%M\%S` 2>&1 
+        30 14 * * * timeout 1h /home/opc/oci-nightly-stop/run_nightly-stop.sh UTC+09:30 include >> /home/opc/oci-nightly-stop/run_nightly-stop.sh_run.txt_`date +\%Y\%m\%d-\%H\%M\%S` 2>&1 
 
         # UTC+09:00 - If a compartment does not have a timezone tag or is tagged with the remaining timezones, resources belonging to that compartment will be targeted.
-        00 15 * * * timeout 1h /home/opc/oci-nigthly-stop/run_nightly-stop.sh UTC+07:00,UTC+08:00,UTC+09:30 exclude >> /home/opc/oci-nigthly-stop/run_nightly-stop.sh_run.txt_`date +\%Y\%m\%d-\%H\%M\%S` 2>&1
+        00 15 * * * timeout 1h /home/opc/oci-nightly-stop/run_nightly-stop.sh UTC+07:00,UTC+08:00,UTC+09:30 exclude >> /home/opc/oci-nightly-stop/run_nightly-stop.sh_run.txt_`date +\%Y\%m\%d-\%H\%M\%S` 2>&1
         
         # UTC+08:00
-        00 16 * * * timeout 1h /home/opc/oci-nigthly-stop/run_nightly-stop.sh UTC+08:00 include >> /home/opc/oci-nigthly-stop/run_nightly-stop.sh_run.txt_`date +\%Y\%m\%d-\%H\%M\%S` 2>&1   
+        00 16 * * * timeout 1h /home/opc/oci-nightly-stop/run_nightly-stop.sh UTC+08:00 include >> /home/opc/oci-nightly-stop/run_nightly-stop.sh_run.txt_`date +\%Y\%m\%d-\%H\%M\%S` 2>&1   
         
         # UTC+07:00
-        00 17 * * * timeout 1h /home/opc/oci-nigthly-stop/run_nightly-stop.sh UTC+07:00 include >> /home/opc/oci-nigthly-stop/run_nightly-stop.sh_run.txt_`date +\%Y\%m\%d-\%H\%M\%S` 2>&1                 
+        00 17 * * * timeout 1h /home/opc/oci-nightly-stop/run_nightly-stop.sh UTC+07:00 include >> /home/opc/oci-nightly-stop/run_nightly-stop.sh_run.txt_`date +\%Y\%m\%d-\%H\%M\%S` 2>&1                 
        
         ```

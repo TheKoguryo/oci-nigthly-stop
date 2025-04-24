@@ -1,6 +1,6 @@
 #!/bin/bash
 
-export APPDIR=$HOME/oci-nigthly-stop
+export APPDIR=$HOME/oci-nightly-stop
 
 cd $APPDIR
 

@@ -20,7 +20,7 @@ def stop_compute_instances(config, signer, compartments, filter_tz, filter_mode)
                 print("      (skipped) Target timezones: all timezone excluding {}".format(filter_tz))
                 continue
 
-        resources = _get_resource_list(config, signer, compartment.id)
+        resources = _get_resources(config, signer, compartment.id)
         for resource in resources:
             go = 0
             if (resource.lifecycle_state == 'RUNNING'):
@@ -54,7 +54,7 @@ def stop_compute_instances(config, signer, compartments, filter_tz, filter_mode)
     print('\nStopping * marked {} instances...'.format(service_name))
     for resource in target_resources:
         try:
-            response, request_date = _resource_action(config, signer, resource.id, 'STOP')
+            response, request_date = _perform_resource_action(config, signer, resource.id, 'STOP')
         except oci.exceptions.ServiceError as e:
             print("---------> error. status: {}".format(e))
             pass
@@ -69,7 +69,7 @@ def stop_compute_instances(config, signer, compartments, filter_tz, filter_mode)
     return target_resources
 
 
-def _get_resource_list(config, signer, compartment_id):
+def _get_resources(config, signer, compartment_id):
     object = oci.core.ComputeClient(config=config, signer=signer)
     resources = oci.pagination.list_call_get_all_results(
         object.list_instances,
@@ -77,7 +77,7 @@ def _get_resource_list(config, signer, compartment_id):
     )
     return resources.data
 
-def _resource_action(config, signer, resource_id, action):
+def _perform_resource_action(config, signer, resource_id, action):
     object = oci.core.ComputeClient(config=config, signer=signer)
     response = object.instance_action(
         resource_id,

@@ -20,7 +20,7 @@ def stop_autonomous_database(config, signer, compartments, filter_tz, filter_mod
                 print("      (skipped) Target timezones: all timezone excluding {}".format(filter_tz))
                 continue
             
-        resources = _get_resource_list(config, signer, compartment.id)
+        resources = _get_resources(config, signer, compartment.id)
         for resource in resources:
             go = 0
             if (resource.lifecycle_state == 'AVAILABLE'):
@@ -51,7 +51,7 @@ def stop_autonomous_database(config, signer, compartments, filter_tz, filter_mod
     print('\nStopping * marked {}...'.format(service_name))
     for resource in target_resources:
         try:
-            response, request_date = _resource_action(config, signer, resource.id)
+            response, request_date = _perform_resource_action(config, signer, resource.id)
         except oci.exceptions.ServiceError as e:
             print("---------> error. status: {}".format(e))
             pass
@@ -74,7 +74,7 @@ def change_autonomous_database_license(config, signer, compartments):
     for compartment in compartments:
         print("  compartment: {}".format(compartment.name))
         try:
-            resources = _get_resource_list(config, signer, compartment.id)
+            resources = _get_resources(config, signer, compartment.id)
         except oci.exceptions.ServiceError as e:
             print("  compartment: {}".format(compartment.id))
             print("---------> error. status: {}".format(e))
@@ -131,7 +131,7 @@ def change_autonomous_database_license(config, signer, compartments):
 
     print("\nAll {} changed!".format(service_name))
 
-def _get_resource_list(config, signer, compartment_id):
+def _get_resources(config, signer, compartment_id):
     object = oci.database.DatabaseClient(config=config, signer=signer)
 
     resources = oci.pagination.list_call_get_all_results(
@@ -154,7 +154,7 @@ def _change_license_model(config, signer, resource_id, license_model):
     )
     return response.data, response.headers['Date']
 
-def _resource_action(config, signer, resource_id):
+def _perform_resource_action(config, signer, resource_id):
     object = oci.database.DatabaseClient(config=config, signer=signer)
     response = object.stop_autonomous_database(
         resource_id

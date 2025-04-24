@@ -19,7 +19,7 @@ def stop_integration_cloud(config, signer, compartments, filter_tz, filter_mode)
                 print("      (skipped) Target timezones: all timezone excluding {}".format(filter_tz))
                 continue
             
-        resources = _get_resource_list(config, signer, compartment.id)
+        resources = _get_resources(config, signer, compartment.id)
         for resource in resources:
             go = 0
             if (resource.lifecycle_state == 'ACTIVE'):
@@ -47,7 +47,7 @@ def stop_integration_cloud(config, signer, compartments, filter_tz, filter_mode)
     print('\nStopping * marked {}...'.format(service_name))
     for resource in target_resources:
         try:
-            response, request_date = _resource_action(config, signer, resource.id, 'STOP')
+            response, request_date = _perform_resource_action(config, signer, resource.id, 'STOP')
         except oci.exceptions.ServiceError as e:
             print("---------> error. status: {}".format(e))
             pass
@@ -68,7 +68,7 @@ def change_integration_cloud_license(config, signer, compartments):
 
     for compartment in compartments:
         print("  compartment: {}".format(compartment.name))
-        resources = _get_resource_list(config, signer, compartment.id)
+        resources = _get_resources(config, signer, compartment.id)
         for resource in resources:
 
             go = 0
@@ -108,7 +108,7 @@ def change_integration_cloud_license(config, signer, compartments):
 
     print("\nAll {} changed!".format(service_name)) 
 
-def _get_resource_list(config, signer, compartment_id):
+def _get_resources(config, signer, compartment_id):
     resources = []
 
     object = oci.integration.IntegrationInstanceClient(config=config, signer=signer)
@@ -124,7 +124,7 @@ def _get_resource_list(config, signer, compartment_id):
 
     return resources    
 
-def _resource_action(config, signer, resource_id, action):
+def _perform_resource_action(config, signer, resource_id, action):
     object = oci.integration.IntegrationInstanceClient(config=config, signer=signer)
 
     if (action == 'STOP'):      

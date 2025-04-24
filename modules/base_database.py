@@ -59,7 +59,7 @@ def stop_base_database_systems(config, signer, compartments, filter_tz, filter_m
     print('\nStopping * marked {}...'.format(service_name))
     for resource in target_resources:
         try:
-            response, request_date = _db_node_action(config, signer, resource.id, 'STOP')
+            response, request_date = _perform_db_node_action(config, signer, resource.id, 'STOP')
         except oci.exceptions.ServiceError as e:
             print("---------> error. status: {}".format(e))
             pass
@@ -140,7 +140,7 @@ def _get_db_node_list(config, signer, compartment_id, db_system_id):
     )
     return resources.data
 
-def _db_node_action(config, signer, resource_id, action):
+def _perform_db_node_action(config, signer, resource_id, action):
     object = oci.database.DatabaseClient(config=config, signer=signer)
     response = object.db_node_action(
         resource_id,

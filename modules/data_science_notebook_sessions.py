@@ -19,7 +19,7 @@ def stop_data_science_notebook_sessions(config, signer, compartments, filter_tz,
                 print("      (skipped) Target timezones: all timezone excluding {}".format(filter_tz))
                 continue
             
-        resources = _get_resource_list(config, signer, compartment.id)
+        resources = _get_resources(config, signer, compartment.id)
         for resource in resources:
             go = 0
             if (resource.lifecycle_state == 'ACTIVE'):
@@ -47,7 +47,7 @@ def stop_data_science_notebook_sessions(config, signer, compartments, filter_tz,
     print('\nStopping * marked {}...'.format(service_name))
     for resource in target_resources:
         try:
-            response, request_date = _resource_action(config, signer, resource.id, 'STOP')
+            response, request_date = _perform_resource_action(config, signer, resource.id, 'STOP')
         except oci.exceptions.ServiceError as e:
             print("---------> error. status: {}".format(e))
             pass
@@ -61,7 +61,7 @@ def stop_data_science_notebook_sessions(config, signer, compartments, filter_tz,
 
     return target_resources    
 
-def _get_resource_list(config, signer, compartment_id):
+def _get_resources(config, signer, compartment_id):
     object = oci.data_science.DataScienceClient(config=config, signer=signer)
     resources = oci.pagination.list_call_get_all_results(
         object.list_notebook_sessions,
@@ -69,7 +69,7 @@ def _get_resource_list(config, signer, compartment_id):
     )
     return resources.data
 
-def _resource_action(config, signer, resource_id, action):
+def _perform_resource_action(config, signer, resource_id, action):
     object = oci.data_science.DataScienceClient(config=config, signer=signer)
 
     if (action == 'STOP'):

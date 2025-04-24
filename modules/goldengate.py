@@ -19,7 +19,7 @@ def stop_goldengate(config, signer, compartments, filter_tz, filter_mode):
                 print("      (skipped) Target timezones: all timezone excluding {}".format(filter_tz))
                 continue
             
-        resources = _get_resource_list(config, signer, compartment.id)
+        resources = _get_resources(config, signer, compartment.id)
         for resource in resources:
             go = 0
 
@@ -48,7 +48,7 @@ def stop_goldengate(config, signer, compartments, filter_tz, filter_mode):
     print('\nStopping * marked {}...'.format(service_name))
     for resource in target_resources:
         try:
-            response, request_date = _resource_action(config, signer, resource.id, 'STOP')
+            response, request_date = _perform_resource_action(config, signer, resource.id, 'STOP')
         except oci.exceptions.ServiceError as e:
             print("---------> error. status: {}".format(e))
             pass
@@ -69,7 +69,7 @@ def change_goldengate_license(config, signer, compartments):
 
     for compartment in compartments:
         print("  compartment: {}".format(compartment.name))
-        resources = _get_resource_list(config, signer, compartment.id)
+        resources = _get_resources(config, signer, compartment.id)
         for resource in resources:
 
             go = 0
@@ -109,7 +109,7 @@ def change_goldengate_license(config, signer, compartments):
 
     print("\nAll {} changed!".format(service_name))
 
-def _get_resource_list(config, signer, compartment_id):
+def _get_resources(config, signer, compartment_id):
     object = oci.golden_gate.GoldenGateClient(config=config, signer=signer)
     resources = oci.pagination.list_call_get_all_results(
         object.list_deployments,
@@ -117,7 +117,7 @@ def _get_resource_list(config, signer, compartment_id):
     )
     return resources.data
 
-def _resource_action(config, signer, resource_id, action):
+def _perform_resource_action(config, signer, resource_id, action):
     object = oci.golden_gate.GoldenGateClient(config=config, signer=signer)
     details = oci.golden_gate.models.StopDeploymentDetails(type="DEFAULT")
 

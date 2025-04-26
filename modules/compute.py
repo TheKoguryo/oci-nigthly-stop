@@ -1,13 +1,14 @@
 import oci
 import socket
+import traceback
 from modules.utils import *
 
-service_name = 'Compute'
+SERVICE_NAME = 'Compute'
 
 def stop_compute_instances(config, signer, compartments, filter_tz, filter_mode):
     target_resources = []
 
-    print("Listing all {} instances... (* is marked for stop)".format(service_name))
+    print("Listing all {} instances... (* is marked for stop)".format(SERVICE_NAME))
     for compartment in compartments:
         print("  compartment: {}, timezone: {}".format(compartment.name, compartment.timezone))
 
@@ -22,28 +23,28 @@ def stop_compute_instances(config, signer, compartments, filter_tz, filter_mode)
 
         resources = _get_resources(config, signer, compartment.id)
         for resource in resources:
-            go = 0
+            action_required = False
             if (resource.lifecycle_state == 'RUNNING'):
                 if IS_FIRST_FRIDAY:
-                    go = 1
+                    action_required = True
 
                     # Don't stop the VM that run this nightly-stop.
                     if resource.display_name == socket.gethostname():
-                        go = 0
+                        action_required = False
                     
                 if ('Control' in resource.defined_tags) and ('Nightly-Stop' in resource.defined_tags['Control']):     
                     if (resource.defined_tags['Control']['Nightly-Stop'].upper() != 'FALSE'):    
-                        go = 1
+                        action_required = True
                 else:
-                    go = 1
+                    action_required = True
 
-            if (go == 1):
+            if action_required:
                 if "-instance-pool-" in str(resource.display_name):
                     continue
                 
                 print("    * {} ({}) in {}".format(resource.display_name, resource.lifecycle_state, compartment.name))
                 resource.compartment_name = compartment.name
-                resource.service_name = service_name
+                resource.service_name = SERVICE_NAME
                 target_resources.append(resource)
             else:
                 if ('Control' in resource.defined_tags) and ('Nightly-Stop' in resource.defined_tags['Control']):  
@@ -51,35 +52,35 @@ def stop_compute_instances(config, signer, compartments, filter_tz, filter_mode)
                 else:
                     print("      {} ({}) in {}".format(resource.display_name, resource.lifecycle_state, compartment.name))
 
-    print('\nStopping * marked {} instances...'.format(service_name))
+    print('\nStopping * marked {} instances...'.format(SERVICE_NAME))
     for resource in target_resources:
         try:
             response, request_date = _perform_resource_action(config, signer, resource.id, 'STOP')
         except oci.exceptions.ServiceError as e:
             print("---------> error. status: {}".format(e))
-            pass
+            traceback.print_exc()
         else:
             if response.lifecycle_state == 'STOPPING':
                 print("    stop requested: {} ({}) in {}".format(response.display_name, response.lifecycle_state, resource.compartment_name))
             else:
                 print("---------> error stopping {} ({})".format(response.display_name, response.lifecycle_state))
 
-    print("\nAll {} instances stopped!".format(service_name))
+    print("\nAll {} instances stopped!".format(SERVICE_NAME))
 
     return target_resources
 
 
 def _get_resources(config, signer, compartment_id):
-    object = oci.core.ComputeClient(config=config, signer=signer)
+    client = oci.core.ComputeClient(config=config, signer=signer)
     resources = oci.pagination.list_call_get_all_results(
-        object.list_instances,
+        client.list_instances,
         compartment_id
     )
     return resources.data
 
 def _perform_resource_action(config, signer, resource_id, action):
-    object = oci.core.ComputeClient(config=config, signer=signer)
-    response = object.instance_action(
+    client = oci.core.ComputeClient(config=config, signer=signer)
+    response = client.instance_action(
         resource_id,
         action
     )

@@ -1,12 +1,12 @@
 import oci
 from modules.utils import *
 
-service_name = 'Visual Builder'
+SERVICE_NAME = 'Visual Builder'
 
 def stop_visual_builder(config, signer, compartments, filter_tz, filter_mode):
     target_resources = []
 
-    print("Listing all {}... (* is marked for stop)".format(service_name))
+    print("Listing all {}... (* is marked for stop)".format(SERVICE_NAME))
     for compartment in compartments:
         print("  compartment: {}, timezone: {}".format(compartment.name, compartment.timezone))
 
@@ -21,21 +21,21 @@ def stop_visual_builder(config, signer, compartments, filter_tz, filter_mode):
             
         resources = _get_resources(config, signer, compartment.id)
         for resource in resources:
-            go = 0
+            action_required = False
             if (resource.lifecycle_state == 'ACTIVE'):
                 if IS_FIRST_FRIDAY:
-                    go = 1
+                    action_required = True
                                     
                 if ('Control' in resource.defined_tags) and ('Nightly-Stop' in resource.defined_tags['Control']):     
                     if (resource.defined_tags['Control']['Nightly-Stop'].upper() != 'FALSE'):    
-                        go = 1
+                        action_required = True
                 else:
-                    go = 1
+                    action_required = True
 
-            if (go == 1):
+            if action_required:
                 print("    * {} ({}) in {}".format(resource.display_name, resource.lifecycle_state, compartment.name))
                 resource.compartment_name = compartment.name
-                resource.service_name = service_name
+                resource.service_name = SERVICE_NAME
                 resource.region = config["region"] 
                 target_resources.append(resource)
             else:
@@ -44,7 +44,7 @@ def stop_visual_builder(config, signer, compartments, filter_tz, filter_mode):
                 else:
                     print("      {} ({}) in {}".format(resource.display_name, resource.lifecycle_state, compartment.name))
 
-    print('\nStopping * marked {}...'.format(service_name))
+    print('\nStopping * marked {}...'.format(SERVICE_NAME))
     for resource in target_resources:
         try:
             response, request_date = _perform_resource_action(config, signer, resource.id, 'STOP')
@@ -57,35 +57,35 @@ def stop_visual_builder(config, signer, compartments, filter_tz, filter_mode):
             else:
                 print("---------> error stopping {} ({})".format(response.display_name, response.lifecycle_state))
 
-    print("\nAll {} stopped!".format(service_name))
+    print("\nAll {} stopped!".format(SERVICE_NAME))
 
     return target_resources    
 
 def _get_resources(config, signer, compartment_id):
     resources = []
 
-    object = oci.visual_builder.VbInstanceClient(config=config, signer=signer)
+    client = oci.visual_builder.VbInstanceClient(config=config, signer=signer)
     summary = oci.pagination.list_call_get_all_results(
-        object.list_vb_instances,
+        client.list_vb_instances,
         compartment_id
     )
 
     for inst in summary.data:
-        resource = object.get_vb_instance(vb_instance_id=inst.id)
+        resource = client.get_vb_instance(vb_instance_id=inst.id)
 
         resources.append(resource.data)
 
     return resources
 
 def _perform_resource_action(config, signer, resource_id, action):
-    object = oci.visual_builder.VbInstanceClient(config=config, signer=signer)
+    client = oci.visual_builder.VbInstanceClient(config=config, signer=signer)
 
     if (action == 'STOP'):    
-        stop_response = object.stop_vb_instance(
+        stop_response = client.stop_vb_instance(
             resource_id
         )
 
-        response = object.get_vb_instance(
+        response = client.get_vb_instance(
             resource_id
         )
 

@@ -1,12 +1,12 @@
 import oci
 from modules.utils import *
 
-service_name = 'Data Science - Model Deployment'
+SERVICE_NAME = 'Data Science - Model Deployment'
 
 def stop_data_science_model_deployments(config, signer, compartments, filter_tz, filter_mode):
     target_resources = []
 
-    print("Listing all {}... (* is marked for stop)".format(service_name))
+    print("Listing all {}... (* is marked for stop)".format(SERVICE_NAME))
     for compartment in compartments:
         print("  compartment: {}, timezone: {}".format(compartment.name, compartment.timezone))
 
@@ -21,21 +21,21 @@ def stop_data_science_model_deployments(config, signer, compartments, filter_tz,
             
         resources = _get_resources(config, signer, compartment.id)
         for resource in resources:
-            go = 0
+            action_required = False
             if (resource.lifecycle_state == 'ACTIVE'):
                 if IS_FIRST_FRIDAY:
-                    go = 1
+                    action_required = True
                                     
                 if ('Control' in resource.defined_tags) and ('Nightly-Stop' in resource.defined_tags['Control']):     
                     if (resource.defined_tags['Control']['Nightly-Stop'].upper() != 'FALSE'):    
-                        go = 1
+                        action_required = True
                 else:
-                    go = 1
+                    action_required = True
 
-            if (go == 1):
+            if action_required:
                 print("    * {} ({}) in {}".format(resource.display_name, resource.lifecycle_state, compartment.name))
                 resource.compartment_name = compartment.name
-                resource.service_name = service_name
+                resource.service_name = SERVICE_NAME
                 resource.region = config["region"]            
 
                 created_by = ""
@@ -55,7 +55,7 @@ def stop_data_science_model_deployments(config, signer, compartments, filter_tz,
                 else:
                     print("      {} ({}) in {}".format(resource.display_name, resource.lifecycle_state, compartment.name))
 
-    print('\nStopping * marked {}...'.format(service_name))
+    print('\nStopping * marked {}...'.format(SERVICE_NAME))
     for resource in target_resources:
         try:
             response, request_date = _perform_resource_action(config, signer, resource.id, 'STOP')
@@ -68,35 +68,35 @@ def stop_data_science_model_deployments(config, signer, compartments, filter_tz,
             else:
                 print("---------> error stopping {} ({})".format(response.display_name, response.lifecycle_state))
 
-    print("\nAll {} stopped!".format(service_name))
+    print("\nAll {} stopped!".format(SERVICE_NAME))
 
     return target_resources    
 
 def _get_resources(config, signer, compartment_id):
-    object = oci.data_science.DataScienceClient(config=config, signer=signer)
+    client = oci.data_science.DataScienceClient(config=config, signer=signer)
     resources = oci.pagination.list_call_get_all_results(
-        object.list_model_deployments,
+        client.list_model_deployments,
         compartment_id
     )
     return resources.data
 
 def _perform_resource_action(config, signer, resource_id, action):
-    object = oci.data_science.DataScienceClient(config=config, signer=signer)
+    client = oci.data_science.DataScienceClient(config=config, signer=signer)
 
     if (action == 'STOP'):
-        stop_response = object.deactivate_model_deployment(
+        stop_response = client.deactivate_model_deployment(
             resource_id
         )
 
-        response = object.get_model_deployment(
+        response = client.get_model_deployment(
             resource_id
         )  
 
     return response.data, stop_response.headers['Date']
 
 def _get_notebook_session_created_by(config, signer, notebook_session_id):
-    object = oci.data_science.DataScienceClient(config=config, signer=signer)
-    get_notebook_session_response = object.get_notebook_session(notebook_session_id)
+    client = oci.data_science.DataScienceClient(config=config, signer=signer)
+    get_notebook_session_response = client.get_notebook_session(notebook_session_id)
 
     created_by = ""
     try:

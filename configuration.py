@@ -37,5 +37,5 @@ sender_email = ""
 sender_name = "Nightly Stop"
 cc = None
 bcc = ""
-langugage="Korean"
-#langugage="English"
+language="Korean"
+#language="English"

@@ -22,15 +22,13 @@ def stop_goldengate(config, signer, compartments, filter_tz, filter_mode):
         resources = _get_resources(config, signer, compartment.id)
         for resource in resources:
             action_required = False
+            nightly_stop_tag = resource.defined_tags.get('Control', {}).get('Nightly-Stop', '').upper()               
 
             if (resource.lifecycle_state == 'ACTIVE' or resource.lifecycle_state == 'NEEDS_ATTENTION'):
                 if IS_FIRST_FRIDAY:
                     action_required = True
 
-                if ('Control' in resource.defined_tags) and ('Nightly-Stop' in resource.defined_tags['Control']):     
-                    if (resource.defined_tags['Control']['Nightly-Stop'].upper() != 'FALSE'):    
-                        action_required = True
-                else:
+                if nightly_stop_tag != 'FALSE':   
                     action_required = True
 
             if action_required:
@@ -40,8 +38,8 @@ def stop_goldengate(config, signer, compartments, filter_tz, filter_mode):
                 resource.region = config["region"]                
                 target_resources.append(resource)
             else:
-                if ('Control' in resource.defined_tags) and ('Nightly-Stop' in resource.defined_tags['Control']):  
-                    print("      {} ({}) in {} - {}:{}".format(resource.display_name, resource.lifecycle_state, compartment.name, 'Control.Nightly-Stop', resource.defined_tags['Control']['Nightly-Stop'].upper()))
+                if nightly_stop_tag != '':      
+                    print("      {} ({}) in {} - {}:{}".format(resource.display_name, resource.lifecycle_state, compartment.name, 'Control.Nightly-Stop', nightly_stop_tag))
                 else:
                     print("      {} ({}) in {}".format(resource.display_name, resource.lifecycle_state, compartment.name))
 
@@ -62,6 +60,7 @@ def stop_goldengate(config, signer, compartments, filter_tz, filter_mode):
 
     return target_resources        
 
+
 def change_goldengate_license(config, signer, compartments):
     target_resources = []
 
@@ -73,10 +72,8 @@ def change_goldengate_license(config, signer, compartments):
         for resource in resources:
 
             action_required = False
-            if ('Control' in resource.defined_tags) and ('BYOL' in resource.defined_tags['Control']):     
-                if (resource.defined_tags['Control']['BYOL'].upper() != 'FALSE'):    
-                    action_required = True
-            else:
+            byol_tag = resource.defined_tags.get('Control', {}).get('BYOL', '').upper()
+            if byol_tag != 'FALSE':   
                 action_required = True
 
             if action_required:
@@ -88,12 +85,12 @@ def change_goldengate_license(config, signer, compartments):
                 else:
                     print("      {} ({}) in {}".format(resource.display_name, resource.license_model, compartment.name))
             else:
-                if ('Control' in resource.defined_tags) and ('BYOL' in resource.defined_tags['Control']):   
-                    print("      {} ({}) in {} - {}:{}".format(resource.display_name, resource.license_model, compartment.name, 'Control.BYOL', resource.defined_tags['Control']['BYOL'].upper()))
+                if byol_tag != '':       
+                    print("      {} ({}) in {} - {}:{}".format(resource.name, resource.license_type, compartment.name, 'Control.BYOL', byol_tag))
                 else:
-                    print("      {} ({}) in {}".format(resource.display_name, resource.license_model, compartment.name))
+                    print("      {} ({}) in {}".format(resource.name, resource.license_type, compartment.name))
 
-    print("\nChanging * marked {}'s lisence model...".format(SERVICE_NAME))
+    print("\nChanging * marked {}'s license model...".format(SERVICE_NAME))
     for resource in target_resources:
         try:
             response, request_date = _change_license_model(config, signer, resource.id, 'BRING_YOUR_OWN_LICENSE')
@@ -132,6 +129,7 @@ def _perform_resource_action(config, signer, resource_id, action):
         )        
 
     return response.data, stop_response.headers['Date']
+
 
 def _change_license_model(config, signer, resource_id, license_model):
     client = oci.golden_gate.GoldenGateClient(config=config, signer=signer)

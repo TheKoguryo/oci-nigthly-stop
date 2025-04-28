@@ -23,14 +23,12 @@ def stop_autonomous_database(config, signer, compartments, filter_tz, filter_mod
         resources = _get_resources(config, signer, compartment.id)
         for resource in resources:
             action_required = False
+            nightly_stop_tag = resource.defined_tags.get('Control', {}).get('Nightly-Stop', '').upper()            
             if (resource.lifecycle_state == 'AVAILABLE'):
                 if IS_FIRST_FRIDAY:
                     action_required = True
                                     
-                if ('Control' in resource.defined_tags) and ('Nightly-Stop' in resource.defined_tags['Control']):     
-                    if (resource.defined_tags['Control']['Nightly-Stop'].upper() != 'FALSE'):    
-                        action_required = True
-                else:
+                if nightly_stop_tag != 'FALSE':   
                     action_required = True
 
             if action_required:
@@ -43,8 +41,8 @@ def stop_autonomous_database(config, signer, compartments, filter_tz, filter_mod
                 resource.region = config["region"]
                 target_resources.append(resource)
             else:
-                if ('Control' in resource.defined_tags) and ('Nightly-Stop' in resource.defined_tags['Control']):  
-                    print("      {} ({}) in {} - {}:{}".format(resource.display_name, resource.lifecycle_state, compartment.name, 'Control.Nightly-Stop', resource.defined_tags['Control']['Nightly-Stop'].upper()))
+                if nightly_stop_tag != '':      
+                    print("      {} ({}) in {} - {}:{}".format(resource.display_name, resource.lifecycle_state, compartment.name, 'Control.Nightly-Stop', nightly_stop_tag))
                 else:
                     print("      {} ({}) in {}".format(resource.display_name, resource.lifecycle_state, compartment.name))
 
@@ -54,7 +52,7 @@ def stop_autonomous_database(config, signer, compartments, filter_tz, filter_mod
             response, request_date = _perform_resource_action(config, signer, resource.id)
         except oci.exceptions.ServiceError as e:
             print("---------> error. status: {}".format(e))
-            pass
+            continue
         else:
             if response.lifecycle_state == 'STOPPING':
                 print("    stop requested: {} ({}) in {}".format(response.display_name, response.lifecycle_state, resource.compartment_name))
@@ -65,6 +63,7 @@ def stop_autonomous_database(config, signer, compartments, filter_tz, filter_mod
     print("\nAll {} stopped!".format(SERVICE_NAME))
 
     return target_resources    
+
 
 def change_autonomous_database_license(config, signer, compartments):
     target_resources = []
@@ -88,10 +87,8 @@ def change_autonomous_database_license(config, signer, compartments):
                 continue
 
             action_required = False
-            if ('Control' in resource.defined_tags) and ('BYOL' in resource.defined_tags['Control']):     
-                if (resource.defined_tags['Control']['BYOL'].upper() != 'FALSE'):    
-                    action_required = True
-            else:
+            byol_tag = resource.defined_tags.get('Control', {}).get('BYOL', '').upper()
+            if byol_tag != 'FALSE':   
                 action_required = True
 
             if action_required:
@@ -110,18 +107,18 @@ def change_autonomous_database_license(config, signer, compartments):
                 else:
                     print("      {} ({}) in {}".format(resource.display_name, resource.license_model, compartment.name))
             else:
-                if ('Control' in resource.defined_tags) and ('BYOL' in resource.defined_tags['Control']):   
-                    print("      {} ({}) in {} - {}:{}".format(resource.display_name, resource.license_model, compartment.name, 'Control.BYOL', resource.defined_tags['Control']['BYOL'].upper()))
+                if byol_tag != '':       
+                    print("      {} ({}) in {} - {}:{}".format(resource.name, resource.license_type, compartment.name, 'Control.BYOL', byol_tag))
                 else:
-                    print("      {} ({}) in {}".format(resource.display_name, resource.license_model, compartment.name))
+                    print("      {} ({}) in {}".format(resource.name, resource.license_type, compartment.name))
 
-    print("\nChanging * marked {}'s lisence model...".format(SERVICE_NAME))
+    print("\nChanging * marked {}'s license model...".format(SERVICE_NAME))
     for resource in target_resources:
         try:
             response, request_date = _change_license_model(config, signer, resource.id, 'BRING_YOUR_OWN_LICENSE')
         except oci.exceptions.ServiceError as e:
             print("---------> error.status: {}".format(e))
-            pass
+            continue
         else:
             if response.lifecycle_state == 'UPDATING':
                 print("    change requested: {} ({})".format(response.display_name, response.lifecycle_state))
@@ -130,6 +127,7 @@ def change_autonomous_database_license(config, signer, compartments):
                 print("---------> error changing {} ({})".format(response.display_name, response.lifecycle_state))
 
     print("\nAll {} changed!".format(SERVICE_NAME))
+
 
 def _get_resources(config, signer, compartment_id):
     client = oci.database.DatabaseClient(config=config, signer=signer)
@@ -140,6 +138,7 @@ def _get_resources(config, signer, compartment_id):
     )
  
     return resources.data
+
 
 def _change_license_model(config, signer, resource_id, license_model):
     client = oci.database.DatabaseClient(config=config, signer=signer)
@@ -153,6 +152,7 @@ def _change_license_model(config, signer, resource_id, license_model):
         details
     )
     return response.data, response.headers['Date']
+
 
 def _perform_resource_action(config, signer, resource_id):
     client = oci.database.DatabaseClient(config=config, signer=signer)

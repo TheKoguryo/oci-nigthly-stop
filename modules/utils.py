@@ -48,7 +48,7 @@ def send_license_type_change_notification(config, signer, service_name, resource
     #datetime_object = datetime.strptime(date_string, '%a, %d %b %Y %H:%M:%S %Z')
     #request_date_string = str(datetime_object.astimezone(KST))
 
-    if configuration.langugage == "Korean":
+    if configuration.language == "Korean":
         if (type == 'BYOL'):
             warningMessage = service_name + " Internal Tenancy 절약 모드"
             title = "[" + signer.tenancy_name + "] " + resource_name + " 라이센스 정책 변경 - BYOL"        
@@ -72,7 +72,7 @@ def send_license_type_change_notification(config, signer, service_name, resource
         additionalMessage = "If you have any questions, please contact your cloud account administrator."
         footerMessage = "This is a system-generated message. Please do not reply to the sender of this message."               
 
-    if configuration.langugage == "Korean":
+    if configuration.language == "Korean":
         template = Path('mail-template/license_type_change_notification_ko.html').read_text()
     else:
         template = Path('mail-template/license_type_change_notification_en.html').read_text()
@@ -128,7 +128,6 @@ def send_license_type_change_notification(config, signer, service_name, resource
     html_body = html_body.replace("${footerMessage}", footerMessage)
 
     send_email(configuration.sender_email, configuration.sender_name, to, configuration.cc, configuration.bcc, title, html_body)
-
 
 
 def  send_nightly_stop_notification(config, signer, created_by, target_resources):
@@ -238,7 +237,7 @@ def  send_nightly_stop_notification(config, signer, created_by, target_resources
     else:
         title += " - " + target_resources[0].display_name
 
-    if configuration.langugage == "Korean":
+    if configuration.language == "Korean":
         if (len(target_resources) > 1):
             title += " 등 총 " + str(len(target_resources)) + "개 일시 중지"
         else:
@@ -259,7 +258,7 @@ def  send_nightly_stop_notification(config, signer, created_by, target_resources
             warningMessage = "Nightly Stop - Today is <b>the first Friday of the month!!</b> Everything stops — no exceptions."
         main_message = "As per the Nightly Stop resource management policy configured by the " + signer.tenancy_name + " tenancy administrator, the scheduler has stopped or deactivated the following resources. <br>You may start or activate them when needed."
 
-    if configuration.langugage == "Korean":
+    if configuration.language == "Korean":
         template = Path('mail-template/nightly_stop_notification_ko.html').read_text()
     else:
         template = Path('mail-template/nightly_stop_notification_en.html').read_text()
@@ -337,13 +336,13 @@ def send_email(sender_email, sender_name, to, cc, bcc, subject, body):
         print ("INFO: Email successfully sent!", flush=True)
 
 
-
 def is_email_format(value):
     obj = re.search(r'[\w.]+\@[\w.]+', value)
     if not obj:
         return False
 
     return True
+
 
 def is_first_friday_today():
     today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
@@ -377,5 +376,6 @@ def is_first_friday_today():
         return True
     else:
         return False    
+
 
 IS_FIRST_FRIDAY = is_first_friday_today()        

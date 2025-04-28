@@ -22,14 +22,12 @@ def stop_data_science_model_deployments(config, signer, compartments, filter_tz,
         resources = _get_resources(config, signer, compartment.id)
         for resource in resources:
             action_required = False
+            nightly_stop_tag = resource.defined_tags.get('Control', {}).get('Nightly-Stop', '').upper()            
             if (resource.lifecycle_state == 'ACTIVE'):
                 if IS_FIRST_FRIDAY:
                     action_required = True
                                     
-                if ('Control' in resource.defined_tags) and ('Nightly-Stop' in resource.defined_tags['Control']):     
-                    if (resource.defined_tags['Control']['Nightly-Stop'].upper() != 'FALSE'):    
-                        action_required = True
-                else:
+                if nightly_stop_tag != 'FALSE':   
                     action_required = True
 
             if action_required:
@@ -50,8 +48,8 @@ def stop_data_science_model_deployments(config, signer, compartments, filter_tz,
 
                 target_resources.append(resource)
             else:
-                if ('Control' in resource.defined_tags) and ('Nightly-Stop' in resource.defined_tags['Control']):  
-                    print("      {} ({}) in {} - {}:{}".format(resource.display_name, resource.lifecycle_state, compartment.name, 'Control.Nightly-Stop', resource.defined_tags['Control']['Nightly-Stop'].upper()))
+                if nightly_stop_tag != '':      
+                    print("      {} ({}) in {} - {}:{}".format(resource.display_name, resource.lifecycle_state, compartment.name, 'Control.Nightly-Stop', nightly_stop_tag))
                 else:
                     print("      {} ({}) in {}".format(resource.display_name, resource.lifecycle_state, compartment.name))
 
@@ -72,6 +70,7 @@ def stop_data_science_model_deployments(config, signer, compartments, filter_tz,
 
     return target_resources    
 
+
 def _get_resources(config, signer, compartment_id):
     client = oci.data_science.DataScienceClient(config=config, signer=signer)
     resources = oci.pagination.list_call_get_all_results(
@@ -79,6 +78,7 @@ def _get_resources(config, signer, compartment_id):
         compartment_id
     )
     return resources.data
+
 
 def _perform_resource_action(config, signer, resource_id, action):
     client = oci.data_science.DataScienceClient(config=config, signer=signer)
@@ -93,6 +93,7 @@ def _perform_resource_action(config, signer, resource_id, action):
         )  
 
     return response.data, stop_response.headers['Date']
+
 
 def _get_notebook_session_created_by(config, signer, notebook_session_id):
     client = oci.data_science.DataScienceClient(config=config, signer=signer)

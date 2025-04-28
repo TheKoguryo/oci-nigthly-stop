@@ -22,14 +22,12 @@ def stop_mysql(config, signer, compartments, filter_tz, filter_mode):
         resources = _get_resources(config, signer, compartment.id)
         for resource in resources:
             action_required = False
+            nightly_stop_tag = resource.defined_tags.get('Control', {}).get('Nightly-Stop', '').upper()            
             if (resource.lifecycle_state == 'ACTIVE'):
                 if IS_FIRST_FRIDAY:
                     action_required = True
                                     
-                if ('Control' in resource.defined_tags) and ('Nightly-Stop' in resource.defined_tags['Control']):     
-                    if (resource.defined_tags['Control']['Nightly-Stop'].upper() != 'FALSE'):    
-                        action_required = True
-                else:
+                if nightly_stop_tag != 'FALSE':   
                     action_required = True
 
                 # Stop is not allowed when crashRecovery is disabled
@@ -44,8 +42,8 @@ def stop_mysql(config, signer, compartments, filter_tz, filter_mode):
                 resource.region = config["region"] 
                 target_resources.append(resource)
             else:
-                if ('Control' in resource.defined_tags) and ('Nightly-Stop' in resource.defined_tags['Control']):  
-                    print("      {} ({}) in {} - {}:{}".format(resource.display_name, resource.lifecycle_state, compartment.name, 'Control.Nightly-Stop', resource.defined_tags['Control']['Nightly-Stop'].upper()))
+                if nightly_stop_tag != '':      
+                    print("      {} ({}) in {} - {}:{}".format(resource.display_name, resource.lifecycle_state, compartment.name, 'Control.Nightly-Stop', nightly_stop_tag))
                 else:
                     print("      {} ({}) in {}".format(resource.display_name, resource.lifecycle_state, compartment.name))
                 
@@ -74,6 +72,7 @@ def _get_resources(config, signer, compartment_id):
         compartment_id
     )
     return resources.data
+
 
 def _perform_resource_action(config, signer, resource_id, action):
     client = oci.mysql.DbSystemClient(config=config, signer=signer)

@@ -34,9 +34,11 @@ class Compartment:
     def __eq__(self, other):
         return (self.id == other.id) and (self.name == other.name) and (self.timezone == other.timezone)
 
+
 def parse_csv(value):
     return [v.strip() for v in value.split(',') if v.strip()]
     
+
 ##########################################################################
 # set parser
 ##########################################################################
@@ -51,6 +53,7 @@ def set_parser_arguments():
     result = parser.parse_args()
    
     return result 
+
 
 ##########################################################################
 # get created_by
@@ -69,6 +72,7 @@ def get_created_by(resource):
         #print("created_by: " + created_by)
     
     return created_by
+
 
 ##########################################################################
 # Main
@@ -385,7 +389,7 @@ for resource in target_resources:
                 revised_target_resources[created_by] = []
                 revised_target_resources[created_by].append(resource)
 
-print("######")
+
 for created_by in revised_target_resources:
     print("created_by: " + created_by)
     region = ""

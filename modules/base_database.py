@@ -22,14 +22,12 @@ def stop_base_database_systems(config, signer, compartments, filter_tz, filter_m
         db_systems = _get_db_system_list(config, signer, compartment.id)
         for db_system in db_systems:
             action_required = False
+            nightly_stop_tag = db_system.defined_tags.get('Control', {}).get('Nightly-Stop', '').upper()            
             if (db_system.lifecycle_state == 'AVAILABLE'):
                 if IS_FIRST_FRIDAY:
                     action_required = True
                                     
-                if ('Control' in db_system.defined_tags) and ('Nightly-Stop' in db_system.defined_tags['Control']):     
-                    if (db_system.defined_tags['Control']['Nightly-Stop'].upper() != 'FALSE'):    
-                        action_required = True
-                else:
+                if nightly_stop_tag != 'FALSE':   
                     action_required = True
 
             if action_required:
@@ -50,10 +48,10 @@ def stop_base_database_systems(config, signer, compartments, filter_tz, filter_m
                     else:
                         print("          node:{} ({})".format(db_node.hostname, db_node.lifecycle_state))
             else:
-                if ('Control' in db_system.defined_tags) and ('Nightly-Stop' in db_system.defined_tags['Control']):  
-                    print("      {} ({}) in {} - {}:{}".format(db_system.display_name, db_system.lifecycle_state, compartment.name, 'Control.Nightly-Stop', db_system.defined_tags['Control']['Nightly-Stop'].upper()))
+                if nightly_stop_tag != '':      
+                    print("      {} ({}) in {} - {}:{}".format(db_system.display_name, db_system.lifecycle_state, compartment.name, 'Control.Nightly-Stop', nightly_stop_tag))
                 else:
-                    print("      {} ({}) in {}".format(db_system.display_name, db_system.lifecycle_state, compartment.name))
+                    print("      {} ({}) in {}".format(db_system.display_name, db_system.lifecycle_state, compartment.name))                    
 
 
     print('\nStopping * marked {}...'.format(SERVICE_NAME))
@@ -74,6 +72,7 @@ def stop_base_database_systems(config, signer, compartments, filter_tz, filter_m
 
     return target_resources    
 
+
 def change_base_database_license(config, signer, compartments):
     target_resources = []
 
@@ -87,10 +86,8 @@ def change_base_database_license(config, signer, compartments):
                 continue
 
             action_required = False
-            if ('Control' in resource.defined_tags) and ('BYOL' in resource.defined_tags['Control']):     
-                if (resource.defined_tags['Control']['BYOL'].upper() != 'FALSE'):    
-                    action_required = True
-            else:
+            byol_tag = resource.defined_tags.get('Control', {}).get('BYOL', '').upper()
+            if byol_tag != 'FALSE':   
                 action_required = True
 
             if action_required:
@@ -102,12 +99,12 @@ def change_base_database_license(config, signer, compartments):
                 else:
                     print("      {} ({}) in {}".format(resource.display_name, resource.license_model, compartment.name))
             else:
-                if ('Control' in resource.defined_tags) and ('BYOL' in resource.defined_tags['Control']):   
-                    print("      {} ({}) in {} - {}:{}".format(resource.display_name, resource.license_model, compartment.name, 'Control.BYOL', resource.defined_tags['Control']['BYOL'].upper()))
+                if byol_tag != '':       
+                    print("      {} ({}) in {} - {}:{}".format(resource.name, resource.license_type, compartment.name, 'Control.BYOL', byol_tag))
                 else:
-                    print("      {} ({}) in {}".format(resource.display_name, resource.license_model, compartment.name))
+                    print("      {} ({}) in {}".format(resource.name, resource.license_type, compartment.name))
 
-    print("\nChanging * marked {}'s lisence model...".format(SERVICE_NAME))
+    print("\nChanging * marked {}'s license model...".format(SERVICE_NAME))
     for resource in target_resources:
         try:
             response, request_date = _change_license_model(config, signer, resource.id, 'BRING_YOUR_OWN_LICENSE')
@@ -123,6 +120,7 @@ def change_base_database_license(config, signer, compartments):
 
     print("\nAll {} DB systems changed!".format(SERVICE_NAME))
 
+
 def _get_db_system_list(config, signer, compartment_id):
     client = oci.database.DatabaseClient(config=config, signer=signer)
     resources = oci.pagination.list_call_get_all_results(
@@ -130,6 +128,7 @@ def _get_db_system_list(config, signer, compartment_id):
         compartment_id=compartment_id
     )
     return resources.data
+
 
 def _get_db_node_list(config, signer, compartment_id, db_system_id):
     client = oci.database.DatabaseClient(config=config, signer=signer)
@@ -140,6 +139,7 @@ def _get_db_node_list(config, signer, compartment_id, db_system_id):
     )
     return resources.data
 
+
 def _perform_db_node_action(config, signer, resource_id, action):
     client = oci.database.DatabaseClient(config=config, signer=signer)
     response = client.db_node_action(
@@ -148,6 +148,7 @@ def _perform_db_node_action(config, signer, resource_id, action):
     )
 
     return response.data, response.headers['Date']
+
 
 def _change_license_model(config, signer, resource_id, license_model):
     client = oci.database.DatabaseClient(config=config, signer=signer)

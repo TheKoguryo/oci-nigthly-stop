@@ -5,6 +5,7 @@ def login(config, signer):
     user = identity.get_user(config['user']).data
     print("Logged in as: {} @ {}".format(user.description, config['region']))
 
+
 def get_compartment_list(config, signer, compartment_id, excluded_parent_compartments):
     identity = oci.identity.IdentityClient(config, signer=signer)
 
@@ -38,6 +39,7 @@ def get_compartment_list(config, signer, compartment_id, excluded_parent_compart
 
     #return active_compartments
 
+
 def get_region_subscription_list(config, signer, tenancy_id):
     identity = oci.identity.IdentityClient(config, signer=signer)
     response = identity.list_region_subscriptions(
@@ -45,12 +47,14 @@ def get_region_subscription_list(config, signer, tenancy_id):
     )
     return response.data
 
+
 def get_tenancy_name(config, signer, tenancy_id):
     identity = oci.identity.IdentityClient(config, signer=signer)
 
     tenancy_name = identity.get_tenancy(tenancy_id).data.name
 
     return tenancy_name 
+
 
 def get_email(config, signer, tenancy_id, domain_display_name, user_name):
     user_email = ""
@@ -65,7 +69,7 @@ def get_email(config, signer, tenancy_id, domain_display_name, user_name):
         display_name=domain_display_name,
         lifecycle_state="ACTIVE")
 
-    domain_endpoint = list_domains_response.data[0].url;
+    domain_endpoint = list_domains_response.data[0].url
 
     identity_domains_client = oci.identity_domains.IdentityDomainsClient(config, domain_endpoint, signer=signer)
 
@@ -83,6 +87,7 @@ def get_email(config, signer, tenancy_id, domain_display_name, user_name):
     print("user_email: " + user_email)
 
     return user_email
+
 
 def get_user_name_by_user_id(config, signer, tenancy_id, domain_display_name, user_id):
     user_email = ""

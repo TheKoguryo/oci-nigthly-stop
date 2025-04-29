@@ -154,10 +154,14 @@ def _change_license_model(config, signer, resource_id, license_model):
     client = oci.database.DatabaseClient(config=config, signer=signer)
     details = oci.database.models.UpdateAutonomousDatabaseDetails(license_model = license_model)
     
-    response = client.update_db_system(
+    update_response = client.update_db_system(
         resource_id,
         details
     )
+
+    response = client.get_db_system(
+        resource_id
+    )    
 
     oci.wait_until(
         client, 
@@ -165,4 +169,4 @@ def _change_license_model(config, signer, resource_id, license_model):
         evaluate_response=lambda r: r.data.lifecycle_state == 'ACTIVE'
     )    
 
-    return response.data, response.headers['Date']
+    return update_response.data, update_response.headers['Date']

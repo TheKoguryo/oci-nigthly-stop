@@ -147,18 +147,22 @@ def _change_license_model(config, signer, resource_id, license_model):
     if license_model == 'BRING_YOUR_OWN_LICENSE':
         details = oci.database.models.UpdateAutonomousDatabaseDetails(license_model = license_model, database_edition='ENTERPRISE_EDITION')
     
-    response = client.update_autonomous_database(
+    update_response = client.update_autonomous_database(
         resource_id,
         details
     )
+
+    response = client.get_autonomous_database(
+        resource_id
+    )      
 
     oci.wait_until(
         client, 
         response, 
         evaluate_response=lambda r: r.data.lifecycle_state == 'ACTIVE'
     )
-        
-    return response.data, response.headers['Date']
+
+    return update_response.data, update_response.headers['Date']
 
 
 def _perform_resource_action(config, signer, resource_id):

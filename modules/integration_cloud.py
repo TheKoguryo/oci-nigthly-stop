@@ -149,7 +149,7 @@ def _change_license_model(config, signer, resource_id, is_byol):
     if response.data.lifecycle_state == 'INACTIVE':
         return response.data, None
     
-    stop_response = client.update_integration_instance(
+    update_response = client.update_integration_instance(
         resource_id,
         details
     )
@@ -164,4 +164,4 @@ def _change_license_model(config, signer, resource_id, is_byol):
         evaluate_response=lambda r: r.data.lifecycle_state == 'ACTIVE'
     )
 
-    return response.data, stop_response.headers['Date']
+    return response.data, update_response.headers['Date']

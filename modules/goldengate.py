@@ -147,8 +147,7 @@ def _change_license_model(config, signer, resource_id, license_model):
     oci.wait_until(
         client, 
         response, 
-        evaluate_response=lambda r: r.data.lifecycle_state == 'ACTIVE',
-        max_wait_seconds=30
+        evaluate_response=lambda r: r.data.lifecycle_state == 'ACTIVE'
     )     
 
     return response.data, update_response.headers['Date']

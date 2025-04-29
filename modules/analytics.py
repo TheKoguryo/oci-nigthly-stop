@@ -143,8 +143,19 @@ def _change_license_model(config, signer, resource_id, license_type):
     client = oci.analytics.AnalyticsClient(config=config, signer=signer)
     details = oci.analytics.models.UpdateAnalyticsInstanceDetails(license_type = license_type)
     
-    response = client.update_analytics_instance(
+    update_response = client.update_analytics_instance(
         resource_id,
         details
     )
-    return response.data, response.headers['Date']
+
+    response = client.get_analytics_instance(
+        resource_id
+    )      
+
+    oci.wait_until(
+        client, 
+        response, 
+        evaluate_response=lambda r: r.data.lifecycle_state == 'ACTIVE'
+    )
+
+    return response.data, update_response.headers['Date']

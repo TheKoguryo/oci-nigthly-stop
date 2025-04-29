@@ -135,7 +135,7 @@ def _change_license_model(config, signer, resource_id, license_model):
     client = oci.golden_gate.GoldenGateClient(config=config, signer=signer)
     details = oci.golden_gate.models.UpdateDeploymentDetails(license_model = license_model)
     
-    stop_response = client.update_deployment(
+    update_response = client.update_deployment(
         resource_id,
         details
     )
@@ -144,4 +144,11 @@ def _change_license_model(config, signer, resource_id, license_model):
         resource_id
     )
 
-    return response.data, stop_response.headers['Date']
+    oci.wait_until(
+        client, 
+        response, 
+        evaluate_response=lambda r: r.data.lifecycle_state == 'ACTIVE',
+        max_wait_seconds=30
+    )     
+
+    return response.data, update_response.headers['Date']
